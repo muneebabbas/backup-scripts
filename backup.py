@@ -8,11 +8,15 @@ import logging
 from logging.handlers import RotatingFileHandler
 import time
 import requests
+import os
 
+BACKUP_DIR = '/home/muneebabbas/work/backup-scripts'
 LOG_FILE_SIZE = 5*1024*1024 # 5MB
 LOG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-TIME = 0 # Global variable to record time using timeit decorator
-WEBHOOK_URL = 'http://192.168.1.103:9912/webhooks/script'
+WEBHOOK_URL = 'http://192.168.1.102:9912/webhooks/script'
+
+# Change working directory
+os.chdir(BACKUP_DIR)
 
 scripts = [
     {
@@ -41,8 +45,10 @@ def timeit(method):
     def timed(*args, **kw):
         ts = time.time()
         result = method(*args, **kw)
-        TIME = time.time() - ts
-        return result
+        time_elapsed = time.time() - ts
+        if isinstance(result, tuple):
+            return (*result, time_elapsed)
+        return result, time_elapsed
     return timed
 
 @timeit
@@ -54,7 +60,7 @@ def run_script(path_to_script):
 def main():
     # Backup to backup-server and attached hard drive
     for script in scripts:
-        returncode, stdout, stderr = run_script(script['path'])
+        returncode, stdout, stderr, time_elapsed = run_script(script['path'])
         logger = get_script_logger(script)
         logger.info(
             '%s\n%s\n%s\n%s\n',
@@ -63,16 +69,20 @@ def main():
             'STDERR: {0}'.format(stderr),
             'STDOUT: {0}'.format(stdout)
         )
-        request_response = requests.post(WEBHOOK_URL, json={
-            'path': script['path'],
-            'description': script['description'],
-            'logfile': script['logfile'],
-            'time': int(TIME),
-            'returncode': returncode,
-            'stderr': stderr,
-            'stdout': stdout,
-            'type': 'backup'
-        })
+        try:
+            request_response = requests.post(WEBHOOK_URL, json={
+                'path': script['path'],
+                'description': script['description'],
+                'logfile': script['logfile'],
+                'time': round(time_elapsed),
+                'returncode': returncode,
+                'stderr': stderr,
+                'stdout': stdout,
+                'type': 'backup'
+            })
+        except Exception as e:
+            logger.exception(e)
+            continue
 
 if __name__ == '__main__':
     main()

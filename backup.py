@@ -31,6 +31,18 @@ scripts = [
     }
 ]
 
+# The lines of logs which contain these will be ignored
+FILTERS = ['skipping non-regular file', 'var/lib/docker']
+
+def clean_rsync_logs(logs):
+    """Use the FILTERS array to exclude lines"""
+    logs_array = logs.split('\n')
+    logs_array = filter(
+        lambda x: not any(map(lambda y: y in x, FILTERS)),
+        logs_array
+    )
+    return "\n".join(list(logs_array))
+
 def get_script_logger(script):
     """Get logger for the particular script"""
     logger = logging.getLogger(script['path'])
@@ -61,9 +73,10 @@ def main():
     # Backup to backup-server and attached hard drive
     for script in scripts:
         returncode, stdout, stderr, time_elapsed = run_script(script['path'])
+        stdout = clean_rsync_logs(stdout)
         logger = get_script_logger(script)
         logger.info(
-            '%s\n%s\n%s\n%s\n',
+            '%s\n%s\n%s\n%s',
             'Path: {0}'.format(script['path']),
             'Description: {0}'.format(['description']),
             'STDERR: {0}'.format(stderr),

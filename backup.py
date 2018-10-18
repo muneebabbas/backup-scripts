@@ -14,6 +14,7 @@ BACKUP_DIR = '/home/muneebabbas/work/backup-scripts'
 LOG_FILE_SIZE = 5*1024*1024 # 5MB
 LOG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 WEBHOOK_URL = 'http://192.168.1.102:9912/webhooks/script'
+TIME = None
 
 # Change working directory
 os.chdir(BACKUP_DIR)
@@ -55,12 +56,11 @@ def get_script_logger(script):
 
 def timeit(method):
     def timed(*args, **kw):
+        global TIME
         ts = time.time()
         result = method(*args, **kw)
-        time_elapsed = time.time() - ts
-        if isinstance(result, tuple):
-            return (*result, time_elapsed)
-        return result, time_elapsed
+        TIME = time.time() - ts
+        return result
     return timed
 
 @timeit
@@ -72,7 +72,7 @@ def run_script(path_to_script):
 def main():
     # Backup to backup-server and attached hard drive
     for script in scripts:
-        returncode, stdout, stderr, time_elapsed = run_script(script['path'])
+        returncode, stdout, stderr = run_script(script['path'])
         stdout = clean_rsync_logs(stdout)
         logger = get_script_logger(script)
         logger.info(
@@ -83,11 +83,11 @@ def main():
             'STDOUT: {0}'.format(stdout)
         )
         try:
-            request_response = requests.post(WEBHOOK_URL, json={
+            requests.post(WEBHOOK_URL, json={
                 'path': script['path'],
                 'description': script['description'],
                 'logfile': script['logfile'],
-                'time': round(time_elapsed),
+                'time': round(TIME),
                 'returncode': returncode,
                 'stderr': stderr,
                 'stdout': stdout,

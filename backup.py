@@ -21,11 +21,6 @@ os.chdir(BACKUP_DIR)
 
 scripts = [
     {
-        'path': 'scripts/backup-server.sh',
-        'description': 'Full system backup to backup-server-1 (HP laptop)',
-        'logfile': 'logs/backup-server.log'
-    },
-    {
         'path': 'scripts/wd-1.sh',
         'description': 'Full system backup to WD-1 attached hard drive',
         'logfile': 'logs/wd-1.log'
